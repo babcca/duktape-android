@@ -153,6 +153,16 @@ public final class Duktape implements Closeable {
     }
   }
 
+  /**
+   * Enable Duktape module search engine.
+   * @see <a href="https://github.com/svaarala/duktape/blob/master/doc/modules.rst">uktape modules</a>
+   */
+  public synchronized boolean enableModuleSearch() {
+
+    return setModuleSearchFunction();
+  }
+
+
   @Override protected synchronized void finalize() throws Throwable {
     if (context != 0) {
       Logger.getLogger(getClass().getName()).warning("Duktape instance leaked!");
@@ -165,4 +175,5 @@ public final class Duktape implements Closeable {
   private static native void set(long context, String name, Object object, Object[] methods);
   private static native long get(long context, String name, Object[] methods);
   private static native Object call(long context, long instance, Object method, Object[] args);
+  private static native boolean setModuleSearchFunction();
 }
