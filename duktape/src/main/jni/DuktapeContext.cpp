@@ -213,3 +213,44 @@ const JavaScriptObject* DuktapeContext::get(JNIEnv *env, jstring name, jobjectAr
   m_jsObjects.emplace_back(m_javaValues, env, m_context, name, methods);
   return &m_jsObjects.back();
 }
+
+struct JavaModuleSearch {
+};
+
+#include <syslog.h>
+void js_dump(duk_context * ctx) {
+  duk_push_context_dump(ctx);
+  syslog(LOG_DEBUG, "NC_JS: %s", duk_get_string(ctx, -1));
+  duk_pop(ctx);
+}
+
+void * getJavaModuleSearch(duk_context * ctx) {
+  duk_push_current_function(ctx);
+  duk_get_prop_string(ctx, -1, JAVA_METHOD_PROP_NAME);
+  auto method = static_cast<void *>(duk_require_pointer(ctx, -1));
+  duk_pop_2(ctx);
+  return method;
+}
+
+void setJavaModuleSearch(duk_context * ctx, const duk_idx_t idx, void * ptr) {
+  duk_push_pointer(ctx, reinterpret_cast<void *>(ptr));
+  duk_put_prop_string(ctx, idx, JAVA_METHOD_PROP_NAME);
+}
+
+// See http://wiki.duktape.org/HowtoModules.html
+void DuktapeContext::setModuleSearchFunction(JNIEnv *env) {
+  CHECK_STACK(m_context);
+  duk_get_global_string(m_context, "Duktape");
+
+  auto funcIdx = duk_push_c_function(m_context, [](duk_context *ctx) -> duk_ret_t {
+    auto jms = getJavaModuleSearch(ctx);
+    if (jms != nullptr) {
+      return 0;
+    } else {
+      return DUK_RET_UNIMPLEMENTED_ERROR;
+    }
+  }, 4 /*nargs*/);
+  setJavaModuleSearch(m_context, funcIdx, reinterpret_cast<void *>(0x848014));
+  duk_put_prop_string(m_context, -2, "modSearch");
+  duk_pop(m_context);
+}

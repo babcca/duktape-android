@@ -35,6 +35,8 @@ public:
 
   const JavaScriptObject* get(JNIEnv *env, jstring name, jobjectArray methods);
 
+  void setModuleSearchFunction(JNIEnv *env);
+
 private:
   duk_context* m_context;
   std::list<JavaScriptObject> m_jsObjects;
