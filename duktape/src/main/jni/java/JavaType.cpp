@@ -510,7 +510,16 @@ struct Object : public JavaType {
         value.l = env->NewStringUTF(duk_get_string(ctx, -1));
         duk_pop(ctx);
         break;
-
+      case DUK_TYPE_OBJECT:
+        if (duk_is_array(ctx, -1)) {
+          const auto stringType = new String(GlobalRef(env, env->FindClass("java/lang/String")));
+          value.l = stringType->popArray(ctx, env, 1, false, inScript);
+          delete stringType;
+        } else {
+          value.l = nullptr;
+        }
+        duk_pop(ctx);
+        break;
       default:
         const auto message =
             std::string("Cannot marshal return value ") + duk_safe_to_string(ctx, -1) + " to Java";
@@ -680,5 +689,5 @@ const JavaType* JavaTypeMap::find(JNIEnv* env, const std::string& name) {
     return arrayType.release();
   }
 
-  throw std::invalid_argument("Unsupported Java type " + name);
+  throw std::invalid_argument("JavaTypeMap::find(...): Unsupported Java type " + name);
 }
