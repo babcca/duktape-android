@@ -95,4 +95,5 @@ private:
 /** Calls getName() on the given class and returns a copy of the result. */
 std::string getName(JNIEnv* env, jclass javaClass);
 
+void js_dump(duk_context * ctx);
 #endif //DUKTAPE_ANDROID_JAVAVALUE_H

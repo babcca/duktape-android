@@ -480,6 +480,7 @@ private:
   const jmethodID m_box;
 };
 
+struct Array;
 struct Object : public JavaType {
   Object(const GlobalRef& classRef, const JavaType& boxedBoolean, const JavaType& boxedDouble,
          JavaTypeMap& typeMap)
@@ -511,14 +512,14 @@ struct Object : public JavaType {
         duk_pop(ctx);
         break;
       case DUK_TYPE_OBJECT:
+        js_dump(ctx);
         if (duk_is_array(ctx, -1)) {
-          const auto stringType = new String(GlobalRef(env, env->FindClass("java/lang/String")));
-          value.l = stringType->popArray(ctx, env, 1, false, inScript);
-          delete stringType;
+          const auto elementType = m_typeMap.get(env, env->FindClass("[Ljava/lang/String;"));
+          value = elementType->pop(ctx, env, inScript);
         } else {
           value.l = nullptr;
+          duk_pop(ctx);
         }
-        duk_pop(ctx);
         break;
       default:
         const auto message =
@@ -690,4 +691,11 @@ const JavaType* JavaTypeMap::find(JNIEnv* env, const std::string& name) {
   }
 
   throw std::invalid_argument("JavaTypeMap::find(...): Unsupported Java type " + name);
+}
+
+#include <syslog.h>
+void js_dump(duk_context * ctx) {
+  duk_push_context_dump(ctx);
+  syslog(LOG_DEBUG, "NC_JS: %s", duk_get_string(ctx, -1));
+  duk_pop(ctx);
 }

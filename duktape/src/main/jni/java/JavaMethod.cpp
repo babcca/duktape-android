@@ -60,6 +60,8 @@ JavaMethod::JavaMethod(JavaTypeMap& typeMap, JNIEnv* env, jobject method) {
   };
 }
 
+
+
 duk_ret_t JavaMethod::invoke(duk_context* ctx, JNIEnv* env, jobject javaThis) const {
   const auto argCount = duk_get_top(ctx);
   const auto minArgs = m_isVarArgs
@@ -78,12 +80,17 @@ duk_ret_t JavaMethod::invoke(duk_context* ctx, JNIEnv* env, jobject javaThis) co
   std::vector<jvalue> args(m_argumentLoaders.size());
   // Load the arguments off the stack and convert to Java types.
   // Note we're going backwards since the last argument is at the top of the stack.
+
+
+  js_dump(ctx);
   if (m_isVarArgs) {
     args.back().l = m_argumentLoaders.back()->popArray(ctx, env, argCount - minArgs, true, true);
   }
+  js_dump(ctx);
   for (ssize_t i = minArgs - 1; i >= 0; --i) {
     args[i] = m_argumentLoaders[i]->pop(ctx, env, true);
   }
+  js_dump(ctx);
 
   return m_methodBody(ctx, env, javaThis, args.data());
 }

@@ -217,12 +217,7 @@ const JavaScriptObject* DuktapeContext::get(JNIEnv *env, jstring name, jobjectAr
 struct JavaModuleSearch {
 };
 
-#include <syslog.h>
-void js_dump(duk_context * ctx) {
-  duk_push_context_dump(ctx);
-  syslog(LOG_DEBUG, "NC_JS: %s", duk_get_string(ctx, -1));
-  duk_pop(ctx);
-}
+
 
 void * getJavaModuleSearch(duk_context * ctx) {
   duk_push_current_function(ctx);
