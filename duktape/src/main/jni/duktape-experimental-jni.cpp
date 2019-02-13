@@ -24,7 +24,7 @@
 extern "C" {
 JNIEXPORT void JNICALL
 Java_com_squareup_duktape_Duktape_setModuleSearchFunction(
-    JNIEnv *env, jclass type, jlong context
+    JNIEnv *env, jclass type, jlong context, jobject object
 ) {
   DuktapeContext *duktape = reinterpret_cast<DuktapeContext *>(context);
   if (duktape == nullptr) {
@@ -33,7 +33,7 @@ Java_com_squareup_duktape_Duktape_setModuleSearchFunction(
   }
 
   try {
-    duktape->setModuleSearchFunction(env);
+    duktape->setModuleSearchFunction(env, object);
   } catch (const std::invalid_argument &e) {
     queueIllegalArgumentException(env, e.what());
   } catch (const std::exception &e) {

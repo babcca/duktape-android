@@ -15,6 +15,8 @@
  */
 package com.squareup.duktape;
 
+import com.squareup.duktape.experimental.DuktapeModuleSearch;
+
 import java.io.Closeable;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -157,8 +159,8 @@ public final class Duktape implements Closeable {
    * EXPERIMENTAL: Enable Duktape module search engine.
    * @see <a href="https://github.com/svaarala/duktape/blob/master/doc/modules.rst">uktape modules</a>
    */
-  public synchronized boolean enableModuleSearch() {
-    setModuleSearchFunction(context);
+  public synchronized boolean enableModuleSearch(DuktapeModuleSearch moduleSearch) {
+    setModuleSearchFunction(context, moduleSearch);
     return true;
   }
 
@@ -175,5 +177,5 @@ public final class Duktape implements Closeable {
   private static native void set(long context, String name, Object object, Object[] methods);
   private static native long get(long context, String name, Object[] methods);
   private static native Object call(long context, long instance, Object method, Object[] args);
-  private static native void setModuleSearchFunction(long context);
+  private static native void setModuleSearchFunction(long context, DuktapeModuleSearch moduleSearch);
 }

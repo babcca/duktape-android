@@ -35,7 +35,7 @@ public:
 
   const JavaScriptObject* get(JNIEnv *env, jstring name, jobjectArray methods);
 
-  void setModuleSearchFunction(JNIEnv *env);
+  void setModuleSearchFunction(JNIEnv *env, jobject object);
 
 private:
   duk_context* m_context;

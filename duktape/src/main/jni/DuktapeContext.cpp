@@ -24,6 +24,12 @@
 #include "java/JavaExceptions.h"
 #include "StackChecker.h"
 
+// For compatibility to new Duktape 2.X version see DUK_HIDDEN_SYMBOL.
+// Use only \xff instead of \xff\xff (Anti GCC warning?).
+// https://github.com/svaarala/duktape/blob/master/doc/symbols.rst
+// https://github.com/svaarala/duktape/blob/72be2411048b73f28ca2e16a5fd1b39d76fc7ec8/misc/c_hex_esc.c
+#define DC_DUK_HIDDEN_SYMBOL(x) ("\xff\xff" x)
+
 namespace {
 
 // Internal names used for properties in the Duktape context's global stash and bound variables.
@@ -31,6 +37,7 @@ namespace {
 const char* JAVA_VM_PROP_NAME = "\xff\xffjavaVM";
 const char* JAVA_THIS_PROP_NAME = "\xff\xffjava_this";
 const char* JAVA_METHOD_PROP_NAME = "\xff\xffjava_method";
+const char* JAVA_MODSEARCH_PROP_NAME = DC_DUK_HIDDEN_SYMBOL("mod_search_instance");
 
 JNIEnv* getJNIEnv(duk_context *ctx) {
   duk_push_global_stash(ctx);
@@ -215,6 +222,40 @@ const JavaScriptObject* DuktapeContext::get(JNIEnv *env, jstring name, jobjectAr
 }
 
 struct JavaModuleSearch {
+  JavaModuleSearch(GlobalRef instance)
+    : m_instance(instance)
+    , m_loadScriptModule(nullptr)
+  {
+    auto env = m_instance.getJniEnv();
+    auto object = m_instance.get();
+
+    m_loadScriptModule = env->GetMethodID(env->GetObjectClass(object), "loadScriptModule", "(Ljava/lang/String;)Ljava/lang/String;");
+  }
+
+  JavaModuleSearch(const JavaModuleSearch&) = delete;
+  JavaModuleSearch& operator=(const JavaModuleSearch& other) = delete;
+
+  ~JavaModuleSearch()
+  { }
+
+  // Try to load module string, hope to RVO doesn't create copy of returned string
+  std::string loadScriptModule(const char * moduleId) {
+    if (m_loadScriptModule && moduleId != nullptr) {
+      auto jIdString = m_instance.getJniEnv()->NewStringUTF(moduleId);
+      auto jScriptString = m_instance.getJniEnv()->CallObjectMethod(m_instance.get(), m_loadScriptModule, jIdString);
+
+      if (jScriptString != nullptr) {
+        return JString(m_instance.getJniEnv(), static_cast<jstring>(jScriptString)).str();
+      } else {
+        return "";
+      }
+    }
+    return "";
+  }
+
+private:
+  GlobalRef m_instance;
+  jmethodID m_loadScriptModule;
 };
 
 #include <syslog.h>
@@ -224,33 +265,42 @@ void js_dump(duk_context * ctx) {
   duk_pop(ctx);
 }
 
-void * getJavaModuleSearch(duk_context * ctx) {
+JavaModuleSearch * getJavaModuleSearch(duk_context * ctx) {
   duk_push_current_function(ctx);
-  duk_get_prop_string(ctx, -1, JAVA_METHOD_PROP_NAME);
-  auto method = static_cast<void *>(duk_require_pointer(ctx, -1));
+  duk_get_prop_string(ctx, -1, JAVA_MODSEARCH_PROP_NAME);
+  auto method = static_cast<JavaModuleSearch *>(duk_require_pointer(ctx, -1));
   duk_pop_2(ctx);
   return method;
 }
 
-void setJavaModuleSearch(duk_context * ctx, const duk_idx_t idx, void * ptr) {
+void setJavaModuleSearch(duk_context * ctx, const duk_idx_t idx, JavaModuleSearch * ptr) {
   duk_push_pointer(ctx, reinterpret_cast<void *>(ptr));
-  duk_put_prop_string(ctx, idx, JAVA_METHOD_PROP_NAME);
+  duk_put_prop_string(ctx, idx, JAVA_MODSEARCH_PROP_NAME);
 }
 
 // See http://wiki.duktape.org/HowtoModules.html
-void DuktapeContext::setModuleSearchFunction(JNIEnv *env) {
+void DuktapeContext::setModuleSearchFunction(JNIEnv *env, jobject object) {
+  auto javaModuleSearch = new JavaModuleSearch(GlobalRef(env, object));
+
   CHECK_STACK(m_context);
   duk_get_global_string(m_context, "Duktape");
 
   auto funcIdx = duk_push_c_function(m_context, [](duk_context *ctx) -> duk_ret_t {
     auto jms = getJavaModuleSearch(ctx);
     if (jms != nullptr) {
-      return 0;
+      auto moduleId = duk_get_string(ctx, 0);
+      auto moduleSource = jms->loadScriptModule(moduleId);
+      if (!moduleSource.empty()) {
+        duk_push_string(ctx, moduleSource.c_str());
+        return 1;
+      } else {
+        return 0;
+      }
     } else {
       return DUK_RET_UNIMPLEMENTED_ERROR;
     }
-  }, 4 /*nargs*/);
-  setJavaModuleSearch(m_context, funcIdx, reinterpret_cast<void *>(0x848014));
+  }, 4);
+  setJavaModuleSearch(m_context, funcIdx, javaModuleSearch);
   duk_put_prop_string(m_context, -2, "modSearch");
   duk_pop(m_context);
 }
