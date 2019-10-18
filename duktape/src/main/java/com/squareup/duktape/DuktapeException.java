@@ -15,9 +15,8 @@
  */
 package com.squareup.duktape;
 
-import android.support.annotation.Keep;
+import androidx.annotation.Keep;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
